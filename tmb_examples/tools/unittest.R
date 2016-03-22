@@ -31,7 +31,7 @@ if(example!=""){
   optim <- addHook(stats::optim,timer=TRUE,result=TRUE)
   nlminb <- addHook(stats::nlminb,timer=TRUE,result=TRUE)
   
-  runExample(example,exfolder=".",thisR=TRUE)
+  runExample(basename(example),exfolder=dirname(example),thisR=TRUE,subarch=FALSE)
   
   if(!file.exists(paste0(example,".expected.RData"))){
     outfile <- paste0(example,".expected.RData")
@@ -42,12 +42,22 @@ if(example!=""){
   
 } else {
   ## Report of diffs
-  f1 <- dir(pattern = ".expected.RData$")
-  f2 <- sub("\\.expected\\.","\\.output\\.",f1)
+  f1 <- dir(pattern = ".expected.RData$", recursive=TRUE)
+  f2 <- sub("\\.expected\\.RData$","\\.output\\.RData",f1)
   report <- function(f1,f2,full.timings=FALSE,full.diff=FALSE){
     if(!(file.exists(f1)&file.exists(f2)))return(c("NA"=NA))
     diff <- function(x,y){
-      if(is.list(x)&is.list(y))Map(diff,x,y)
+      if(is.list(x)&is.list(y)){
+          x <- unclass(x) ## avoid as.list.sdreport
+          y <- unclass(y) ## avoid as.list.sdreport
+          ## Allow to compare with old expected output (that did not
+          ## have 'env' as part of sdreport output):
+          keep <- function(x)
+              !is.environment(x)
+          keepx <- sapply(x,keep)
+          keepy <- sapply(y,keep)
+          Map(diff, x[keepx], y[keepy])
+      }
       else if((!is.integer(x))&(is.numeric(x)|is.matrix(y))&length(x)>0)max(abs(x-y))
       else NULL
     }
@@ -67,7 +77,7 @@ if(example!=""){
   }
   sink("REPORT.md")
   cat("Example overview:\n-----------------\n")
-  runExample(exfolder=".")
+  runExample(exfolder=".",subarch=FALSE)
   cat("\n")
   mat <- do.call("rbind",Map(report,f1,f2))
   rownames(mat) <- sub(".expected.RData","",rownames(mat))
